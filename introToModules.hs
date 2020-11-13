@@ -1,5 +1,7 @@
 -- Import Modules
 import Data.List
+import Data.Function
+import Data.Char
 
 -- Import some functions from a Module
 import Data.List (nub, sort)
@@ -21,6 +23,7 @@ import qualified Data.Map as M
 -- nub is a function that takes a list and weeds out duplicate elements
 numUniques :: (Eq a) => [a] -> Int
 numUniques = length . nub
+
 
 
 
@@ -215,7 +218,109 @@ groupByExample =    let values = [-4.3, -2.4, -1.2, 0.4, 2.3, 5.9, 10.5, 29.1, 5
     -- maximumBy
     -- minimumBy
 
+-- on Function (from Data.Function)
+-- It is defined:
+    -- on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+    -- f `on` g = \x y -> f (g x) (g y)
+-- Example: 
+    -- (==) `on` (> 0) returns an equality function that looks like
+    -- \x y -> (x > 0) == (y > 0)
+
+
 
 
 -- Data.Char Functions
+-- Some predicates over characters:
+    -- Functions that take a character and tell us whether some assumption about it is true or false.
+    -- Type Signature: Char -> Bool
+-- Some of them are:
+    -- isControl: checks whether a character is a control character
+    -- isSpace: checks whether a character is a white-space characters. That includes spaces, tab characters, newlines, etc.
+    -- isLower: checks whether a character is lower-cased. 
+    -- isUpper: checks whether a character is upper-cased.
+    -- isAlpha: checks whether a character is a letter.
+    -- isAlphaNum: checks whether a character is a letter or a number.
+    -- isPrint: checks whether a character is printable. Control characters, for instance, are not printable.
+    -- isDigit: checks whether a character is a digit.
+    -- isOctDigit: checks whether a character is an octal digit.
+    -- isHexDigit: checks whether a character is a hex digit.
+    -- isLetter: checks whether a character is a letter.
+    -- isMark: checks for Unicode mark characters. Those are characters that combine with preceding letters to form latters with accents. Use this if you are French.
+    -- isNumber: checks whether a character is numeric.
+    -- isPunctuation: checks whether a character is punctuation.
+    -- isSymbol: checks whether a character is a fancy mathematical or currency symbol.
+    -- isSeparator: checks for Unicode spaces and separators.
+    -- isAscii: checks whether a character falls into the first 128 characters of the Unicode character set.
+    -- isLatin1: checks whether a character falls into the first 256 characters of Unicode.
+    -- isAsciiUpper: checks whether a character is ASCII and upper-case.
+    -- isAsciiLower: checks whether a character is ASCII and lower-case.
 
+-- Problem: Make a program that takes a username and the username can only be comprised of alphanumeric characters.
+onlyAlphanumericUser1 = all isAlphaNum "bobby283"
+-- returns: True
+onlyAlphanumericUser2 = all isAlphaNum "eddy the fish!"
+-- returns: False
+
+-- Problem: Create the words function.
+wordsAttempt1 = groupBy ((==) `on` isSpace) "hey guys its me"
+-- result: ["hey"," ","guys"," ","its"," ","me"]
+wordsAttempt2 = filter (not . any isSpace) . groupBy ((==) `on` isSpace) $ "hey guys its me"
+-- result: ["hey","guys","its","me"]
+
+-- GeneralCategory
+-- Is a datatype that is also an enumeration, and itpresents us with 
+-- a few possible categories that a character can fall into.
+-- It is also part of the Eq typeclass, so we can test stuff like:
+    -- generalCategory c == Space
+-- It has a type of:
+    -- generalCategory :: Char -> GeneralCategory
+-- There are about 31 categories. Some of them are:
+categorySpace = generalCategory ' '
+categoryUppercaseLetter = generalCategory 'A'
+categoryLowercaseLetter = generalCategory 'a'
+categoryOtherPunctuation = generalCategory '.'
+categoryDecimalNumber = generalCategory '9'
+
+categoryList = map generalCategory " \t\nA9?|"
+-- result: [Space,Control,Control,UppercaseLetter,DecimalNumber,OtherPunctuation,MathSymbol]
+
+-- Char Functions
+    -- toUpper: converts a character to upper-case. Spaces, numbers, and the like remain unchanged.
+    -- toLower: converts a character to lower-case.
+    -- toTitle: converts a character to title-case. For most characters, title-case is the same as upper-case.
+    -- digitToInt: converts a character to an Int. To succeed, the character must be in the ranges '0'..'9', 'a'..'f' or 'A'..'F'.
+    -- intToDigit: is the inverse function of digitToInt. It takes an Int in the range of 0..15 and converts it to a lower-case character.
+    -- ord: converts characters to their corresponding numbers.
+    -- chr: converts numbers to their corresponding characters.
+
+digitToIntExample = map digitToInt "34538"
+-- result: [3,4,5,3,8]
+intToDigitExample = intToDigit 15
+-- result: 'f'
+
+ordExample = ord 'a'
+-- result: 97
+chrExample = chr 97
+-- result: 'a'
+mapOrdExample = map ord "abcdefgh"
+-- result: [97,98,99,100,101,102,103,104]
+
+-- Problem: Create a Ceasar cipher.
+encode :: Int -> String -> String
+encode shift msg =
+    let ords = map ord msg
+        shifted = map (+shift) ords
+    in map chr shifted
+
+decode :: Int -> String -> String
+decode shift msg = encode (negate shift) msg
+
+encodeExample = encode 3 "Im a little teapot"
+-- result: "Lp#d#olwwoh#whdsrw"
+decodeExample = decode 3 "Lp#d#olwwoh#whdsrw"
+-- result: "Im a little teapot"
+
+
+
+
+-- Data.Map Functions
