@@ -2,6 +2,12 @@
 import Data.List
 import Data.Function
 import Data.Char
+import qualified Data.Map as Map  
+import qualified Data.Set as Set
+import Geometry
+import qualified Geometry.Sphere as Sphere  
+import qualified Geometry.Cuboid as Cuboid  
+import qualified Geometry.Cube as Cube
 
 -- Import some functions from a Module
 import Data.List (nub, sort)
@@ -257,9 +263,9 @@ groupByExample =    let values = [-4.3, -2.4, -1.2, 0.4, 2.3, 5.9, 10.5, 29.1, 5
 
 -- Problem: Make a program that takes a username and the username can only be comprised of alphanumeric characters.
 onlyAlphanumericUser1 = all isAlphaNum "bobby283"
--- returns: True
+-- result: True
 onlyAlphanumericUser2 = all isAlphaNum "eddy the fish!"
--- returns: False
+-- result: False
 
 -- Problem: Create the words function.
 wordsAttempt1 = groupBy ((==) `on` isSpace) "hey guys its me"
@@ -324,3 +330,241 @@ decodeExample = decode 3 "Lp#d#olwwoh#whdsrw"
 
 
 -- Data.Map Functions
+-- Example of a association list (dictionary), that stores key-value pairs
+phoneBook = 
+    [
+        ("betty", "555-2938"),
+        ("bonnie","452-2928"),
+        ("patsy","493-2928"),
+        ("lucille","205-2928"),
+        ("wendy","939-8282"),
+        ("penny","853-2492")
+    ]
+
+-- A function that looks up some value given a key
+findKey :: (Eq k) => k -> [(k,v)] -> v
+findKey key xs = snd . head . filter (\(k,v) -> key == k) $ xs
+
+-- A function that looks up some value given a key, without Runtime Errors (uses Maybe values)
+findKeyMaybe :: (Eq k) => k -> [(k,v)] -> Maybe v
+findKeyMaybe key [] = Nothing
+findKeyMaybe key ((k,v):xs) = 
+    if key == k
+        then Just v
+    else
+        findKeyMaybe key xs
+
+-- The same function as before, but with foldr (curried)
+findKeyFold :: (Eq k) => k -> [(k,v)] -> Maybe v
+findKeyFold key = foldr (\(k,v) acc -> if key == k then Just v else acc) Nothing
+
+findKeyFoldExample1 = findKey "penny" phoneBook
+-- result: Just "853-2492"
+findKeyFoldExample2 = findKey "wilma" phoneBook
+-- result: Nothing
+
+-- Ofcourse, its better to work with the functions and Map datatype from the Data.Map module
+-- because they are faster than association lists (implemented as trees internally).
+-- We imports as: import qualified Data.Map as Map
+
+-- Some basic Map functions:
+
+-- fromList
+-- Takes an association list (in the form of a list) and returns a map with the same associations.
+fromListExample1 = Map.fromList [("betty","555-2938"),("bonnie","452-2928"),("lucille","205-2928")]
+-- result: fromList [("betty","555-2938"),("bonnie","452-2928"),("lucille","205-2928")]
+fromListExample2 = Map.fromList [(1,2),(3,4),(3,2),(5,5)]
+-- result: fromList [(1,2),(3,2),(5,5)]
+
+-- empty
+emptyExample = Map.empty
+-- result: fromList []
+insertEmptyExample1 = Map.insert 3 100 Map.empty
+-- result: fromList [(3,100)]
+insertEmptyExample2 = Map.insert 5 600 (Map.insert 4 200 ( Map.insert 3 100  Map.empty))
+-- result: fromList [(3,100),(4,200),(5,600)]
+insertEmptyExample3 = Map.insert 5 600 . Map.insert 4 200 . Map.insert 3 100 $ Map.empty
+-- result: fromList [(3,100),(4,200),(5,600)]
+
+-- Problem: Implement fromList using empty map, insert and a fold.
+fromList' :: (Ord k) => [(k,v)] -> Map.Map k v
+fromList' = foldr (\(k,v) acc -> Map.insert k v acc) Map.empty
+
+-- null
+nullExample1 = Map.null Map.empty
+-- result: True
+nullExample2 = Map.null $ Map.fromList [(2,3),(5,5)]
+-- result: False
+
+-- size
+sizeExample1 = Map.size Map.empty
+-- result: 0
+sizeExample2 = Map.size $ Map.fromList [(2,4),(3,3),(4,2),(5,4),(6,4)]
+-- result: 5
+
+-- singleton (takes a key and a value and creates a map that has exactly one mapping)
+singletonExample1 = Map.singleton 3 9
+-- result: fromList [(3,9)]
+singletonExample2 = Map.insert 5 9 $ Map.singleton 3 9
+-- result: fromList [(3,9),(5,9)]
+
+-- lookup (It returns Just something if it finds something for the key and Nothing if it doesn't)
+lookupExample = Map.lookup 6 $ Map.fromList [(2,4),(3,3),(4,2),(5,4),(6,4)]
+-- result: Just 4
+
+-- member (Takes a key and a map and reports whether the key is in the map or not)
+memberExample1 = Map.member 3 $ Map.fromList [(3,6),(4,3),(6,9)]
+-- result: True
+memberExample2 = Map.member 3 $ Map.fromList [(2,5),(4,5)]
+-- result: False
+
+-- map, filter (Same function as their list equivalents)
+mapExample = Map.map (*100) $ Map.fromList [(1,1),(2,4),(3,9)]
+-- result: fromList [(1,100),(2,400),(3,900)]
+filterExample = Map.filter isUpper $ Map.fromList [(1,'a'),(2,'A'),(3,'b'),(4,'B')]
+-- result: fromList [(2,'A'),(4,'B')]
+
+-- toList (The inverse of fromList)
+toListExample = Map.toList . Map.insert 9 2 $ Map.singleton 4 3
+-- result: [(4,3),(9,2)]
+
+-- key, elems (Return lists of keys and values respectively)
+    -- keys is the equivalent of map fst . Map.toList
+    -- elems is the equivalent of map snd . Map.toList.
+
+-- fromListWith
+    -- It acts like fromList, only it doesn't discard duplicate keys
+    -- but it uses a function supplied to it to decide what to do with them
+phoneBookDuplicates = 
+    [
+        ("betty", "555-2938"),
+        ("betty","342-2492"),
+        ("bonnie","452-2928"),
+        ("patsy","493-2928"),
+        ("patsy","943-2929"),
+        ("patsy","827-9162"),
+        ("lucille","205-2928"),
+        ("wendy","939-8282"),
+        ("penny","853-2492"),
+        ("penny","555-2111")
+    ]
+-- Now if we just use fromList to put that into a map, we'll lose a few numbers. So here's what we'll do:
+phoneBookToMap :: (Ord k) => [(k, String)] -> Map.Map k String
+phoneBookToMap xs = Map.fromListWith (\number1 number2 -> number1 ++ ", " ++ number2) xs
+
+phoneBookToMapExample1 = Map.lookup "patsy" $ phoneBookToMap phoneBookDuplicates
+-- result: "827-9162, 943-2929, 493-2928"
+phoneBookToMapExample2 = Map.lookup "wendy" $ phoneBookToMap phoneBook
+-- result: "939-8282"
+
+-- Problem: Make a map from an association list of numbers and when a duplicate key is found, 
+--          we want the biggest value for the key to be kept.
+duplicateMapChooseMax = Map.fromListWith max [(2,3),(2,5),(2,100),(3,29),(3,22),(3,11),(4,22),(4,15)]
+-- result: [(2,100),(3,29),(4,22)]
+
+-- insertWith (It is to insert what fromListWith is to fromList)
+    -- It inserts a key-value pair into a map, but if that map already contains the key, 
+    -- it uses the function passed to it to determine what to do.
+insertWithExample = Map.insertWith (+) 3 100 $ Map.fromList [(3,4),(5,103),(6,339)]
+-- result: fromList [(3,104),(5,103),(6,339)]
+
+
+
+
+-- Data.Set
+    -- All the elements in a set are unique. 
+    -- And because they're internally implemented with trees (much like maps in Data.Map), they're ordered.
+    -- Checking for membership, inserting, deleting, etc. is much faster than doing the same thing with lists.
+    -- The most common operation when dealing with sets are inserting into a set, checking for membership and converting a set to a list.
+-- We imports as: import qualified Data.Set as Set
+
+text1 = "I just had an anime dream. Anime... Reality... Are they so different?"
+text2 = "The old man left his garbage can out and now his trash is all over my lawn!"
+
+-- fromList (It takes a list and converts it into a set)
+set1 = Set.fromList text1
+-- result: fromList " .?AIRadefhijlmnorstuy"
+set2 = Set.fromList text2
+-- result: fromList " !Tabcdefghilmnorstuvwy"
+
+-- intersection (Finds which elements are common between sets)
+intersectionExample = Set.intersection set1 set2
+-- result: fromList " adefhilmnorstuy"
+
+-- difference (Finds which elements are in first set but aren't in the second one and vice versa)
+differenceExample1 = Set.difference set1 set2
+-- result: fromList ".?AIRj"
+differenceExample2 = Set.difference set2 set1
+-- result: fromList "!Tbcgvw"
+
+-- union (Finds which elements are used in both sentences)
+unionExample = Set.union set1 set2
+-- result: fromList " !.?AIRTabcdefghijlmnorstuvwy"
+
+-- null, size, member, empty, singleton, insert and delete (Work like you'd expect them to)
+nullSetExample1 = Set.null Set.empty
+-- result: True
+nullSetExample2 = Set.null $ Set.fromList [3,4,5,5,4,3]
+-- result: False
+sizeSetExample = Set.size $ Set.fromList [3,4,5,3,4,5]
+-- result: 3
+singletonSetExample = Set.singleton 9
+-- result: fromList [9]
+insertSetExample1 = Set.insert 4 $ Set.fromList [9,3,8,1]
+-- result: fromList [1,3,4,8,9]
+insertSetExample2 = Set.insert 8 $ Set.fromList [5..10]
+-- result: fromList [5,6,7,8,9,10]
+deleteSetExample = Set.delete 4 $ Set.fromList [3,4,5,4,3,4,5]
+-- result: fromList [3,5]
+
+-- Check for subsets, proper subsets
+isSubsetOfExample1 = Set.fromList [2,3,4] `Set.isSubsetOf` Set.fromList [1,2,3,4,5]
+-- result: True
+isSubsetOfExample2 = Set.fromList [1,2,3,4,5] `Set.isSubsetOf` Set.fromList [1,2,3,4,5]
+-- result: True
+isSubsetOfExample3 = Set.fromList [2,3,4,8] `Set.isSubsetOf` Set.fromList [1,2,3,4,5]
+-- result: False
+isProperSubsetOfExample1 = Set.fromList [1,2,3,4,5] `Set.isProperSubsetOf` Set.fromList [1,2,3,4,5]
+-- result: False
+
+-- map, filter
+mapSetExample = Set.filter odd $ Set.fromList [3,4,5,6,7,2,3,4]
+-- result: fromList [3,5,7]
+filterSetExample = Set.map (+1) $ Set.fromList [3,4,5,6,7,2,3,4]
+-- result: fromList [3,4,5,6,7,8]
+
+-- setNub (Works like nub, by weeding out duplicates from a list)
+    -- But it does it by first making it into a set with fromList and then converting it back to a list with toList.
+    -- Weeding out duplicates for large lists is much faster if you cram them into a set 
+    --  and then convert them back to a list than using nub.
+    -- But using nub only requires the type of the list's elements to be part of the Eq typeclass, 
+    --  whereas if you want to cram elements into a set, the type of the list has to be in Ord.
+setNub :: Ord a => [a] -> [a]
+setNub xs = Set.toList $ Set.fromList xs
+
+setNubExample = setNub "HEY WHATS CRACKALACKIN"
+-- result: " ACEHIKLNRSTWY"
+nubCounterExample = nub "HEY WHATS CRACKALACKIN"
+-- result: "HEY WATSCRKLIN"
+
+
+
+
+-- Making our own modules
+    -- We will use the module we created in the file "Geometry.hs"
+    -- We import it with:
+        -- import Geometry
+    -- "Geometry.hs" has to be in the same folder that the program that's importing it is in.
+
+-- Modules can also be given a hierarchical structures.
+    -- Each module can have a number of sub-modules and they can have sub-modules of their own.
+    -- We will use the new module we created in the folder Geometry that has sub-modules.
+    -- This way we can have functions like area, volume with the same name for Cuboid, Cube, Sphere
+    --  because they are separete modules.
+    -- If we want only a sub-module, we import it with (and use area, volume):
+        -- import Geometry.Sphere
+    -- If we want more than one sub-module, we import it with (and use Sphere.area, Sphere.volume, etc):
+        -- import qualified Geometry.Sphere as Sphere  
+        -- import qualified Geometry.Cuboid as Cuboid  
+        -- import qualified Geometry.Cube as Cube
+    -- Geometry folder has to be in the same folder that the program that's importing it is in.
