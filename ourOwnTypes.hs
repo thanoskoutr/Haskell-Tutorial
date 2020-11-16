@@ -562,3 +562,246 @@ checkIfInTree4 = 10 `treeElem` numsTree
 
 
 -- Typeclasses 102
+
+-- So far, we've learned about some of the standard Haskell typeclasses and 
+--  we've seen which types are in them. 
+-- We've also learned how to automatically make our own types instances of the standard typeclasses 
+--  by asking Haskell to derive the instances for us. 
+-- In this section, we're going to learn how to make our own typeclasses and how to make types instances of them by hand.
+
+-- When we say that a type is an instance of a typeclass, we mean that we can use the functions 
+--  that the typeclass defines with that type.
+-- For example, this is how the Eq class is defined in the standard prelude:
+    -- class Eq a where
+    --     (==) :: a -> a -> Bool
+    --     (/=) :: a -> a -> Bool
+    --     x == y = not (x /= y)
+    --     x /= y = not (x == y)
+-- When we write class Eq a where, this means that we're defining a new typeclass and that's called Eq.
+-- The a is the type variable and it means that a will play the role of the type that we will soon be making an instance of Eq.
+-- Then, we define several functions. It's not mandatory to implement the function bodies themselves, 
+--  we just have to specify the type declarations for the functions.
+
+-- Once we start making types instances of that class, we start getting some nice functionality:
+data TrafficLight = Red | Yellow | Green
+-- We didn't derive any class instances for it. 
+-- That's because we're going to write up some instances by hand, 
+--  even though we could derive them for types like Eq and Show.
+
+-- Let's make this an instance of Eq
+instance Eq TrafficLight where
+    Red == Red = True
+    Green == Green = True
+    Yellow == Yellow = True
+    _ == _ = False
+-- class is for defining new typeclasses and instance is for making our types instances of typeclasses.
+-- Because == was defined in terms of /= and vice versa in the class declaration,
+--  we only had to overwrite one of them in the instance declaration.
+
+-- Let's make this an instance of Show:
+instance Show TrafficLight where
+    show Red = "Red light"
+    show Yellow = "Yellow light"
+    show Green = "Green light"
+
+trafficLightCheckEq1 = Red == Red
+-- result: True
+trafficLightCheckEq2 = Red == Yellow
+-- result: False
+trafficLightCheckEq3 = Red `elem` [Red, Yellow, Green]
+-- result: True
+trafficLightCheckShow = [Red, Yellow, Green]
+-- result: [Red light,Yellow light,Green light]
+
+
+-- We can also make typeclasses that are subclasses of other typeclasses. 
+-- The class declaration for Num is a bit long, but here's the first part:
+    -- class (Eq a) => Num a where  
+    --     ...
+-- This is just like writing class Num a where, only we state that our type a must be an instance of Eq.
+-- We're essentially saying that we have to make a type an instance of Eq before we can make it an instance of Num.
+-- That's all there is to subclassing really, it's just a class constraint on a class declaration.
+-- When defining function bodies in the class declaration or when defining them in instance declarations, 
+--  we can assume that a is a part of Eq and so we can use == on values of that type.
+
+
+-- Maybe instances of typeclasses
+
+-- What makes Maybe different from, say, TrafficLight is that Maybe in itself isn't a concrete type, 
+--  it's a type constructor that takes one type parameter (like Char or something)
+--  to produce a concrete type (like Maybe Char).
+
+-- In order to make a Maybe (or any type constructor) made as an instance of a typeclasses, we could write it out like so:
+    -- instance (Eq m) => Eq (Maybe m) where  
+    --     Just x == Just y = x == y  
+    --     Nothing == Nothing = True  
+    --     _ == _ = False
+
+-- This is like saying that we want to make all types of the form Maybe something an instance of Eq.
+-- While Maybe isn't a concrete type, Maybe m.
+
+-- We have to add the class constraint ((Eq m) =>) because we use == on the contents of the Maybe 
+--  and we have to be sure that what the Maybe contains can be used with Eq.
+
+-- So, we want all types of the form Maybe m to be part of the Eq typeclass, 
+--  but only those types where the m (what's contained inside the Maybe) is also a part of Eq.
+
+
+
+
+-- A yes-no typeclass
+-- Even though strictly using Bool for boolean semantics works better in Haskell, 
+-- let's try and implement the JavaScript-ish behavior of truthy and falsy expressionss
+-- For example:
+    -- if (0) alert("YEAH!") else alert("NO!")
+    -- if ("") alert ("YEAH!") else alert("NO!"),
+    -- returns: "No!", because JavaScript considers non-empty strings and 0 to be a sort of true-ish value
+
+-- Let's start out with a class declaration:
+class YesNo a where
+    yesno :: a -> Bool
+-- The YesNo typeclass defines one function.
+-- That function takes one value of a type that can be considered to hold some concept 
+--  of true-ness and tells us for sure if it's true or not.
+
+-- Let's define some instances. 
+-- For numbers, we'll assume that  any number that isn't 0 is true-ish and 0 is false-ish:
+instance YesNo Int where
+    yesno 0 = False
+    yesno _ = True
+
+-- Empty lists (and by extensions, strings) are a no-ish value, while non-empty lists are a yes-ish value:
+instance YesNo [a] where
+    yesno [] = False
+    yesno _ = True
+
+-- Bool itself also holds true-ness and false-ness and it's pretty obvious which is which:
+instance YesNo Bool where  
+    yesno = id
+-- id, it's just a standard library function that takes a parameter and returns the same thing,
+--  which is what we would be writing here anyway.
+
+-- Let's make Maybe a an instance too:
+instance YesNo (Maybe a) where
+    yesno (Just _) = True
+    yesno Nothing = False
+
+-- We can say an empty tree is false-ish and anything that's not an empty tree is true-ish:
+instance YesNo (Tree a) where
+    yesno EmptyTree = False
+    yesno _ = True
+
+-- A traffic light can be a yes or no value. 
+-- If it's red, you stop. 
+-- If it's green or yellow, you go. 
+instance YesNo TrafficLight where
+    yesno Red = False
+    yesno _ = True
+
+yesnoExample1 = yesno $ length []
+-- result: False
+yesnoExample2 = yesno "haha"
+-- result: True
+yesnoExample3 = yesno ""
+-- result: False
+yesnoExample4 = yesno $ Just 0
+-- result: True
+yesnoExample5 = yesno True
+-- result: True
+yesnoExample6 = yesno EmptyTree
+-- result: False
+yesnoExample7 = yesno []
+-- result: False
+yesnoExample8 = yesno [0,0,0]
+-- result: True
+
+-- Let's make a function that mimics the if statement, but it works with YesNo values.
+yesnoIf :: (YesNo y) => y -> a -> a -> a
+yesnoIf yesnoVal yesResult noResult = if yesno yesnoVal then yesResult else noResult
+
+yesnoIfExample1 = yesnoIf [] "YEAH!" "NO!"
+-- result: "NO!"
+yesnoIfExample2 = yesnoIf [2,3,4] "YEAH!" "NO!"
+-- result: "YEAH!"
+yesnoIfExample3 = yesnoIf True "YEAH!" "NO!"
+-- result: "YEAH!"
+yesnoIfExample4 = yesnoIf (Just 500) "YEAH!" "NO!"
+-- result: "YEAH!"
+yesnoIfExample5 = yesnoIf Nothing "YEAH!" "NO!"
+-- result: "NO!"
+
+
+
+
+-- The Functor typeclass
+
+-- The Functor typeclass, is basically for things that can be mapped over:
+    -- Lists
+    -- Maybe
+    -- Trees
+    -- Either
+    -- Maps
+
+-- It is implemented like this:
+    -- class Functor f where  
+    --     fmap :: (a -> b) -> f a -> f b
+
+-- We see that it defines one function, fmap, and doesn't provide any default implementation for i.
+-- The f is not a concrete type (a type that a value can hold, like Int, Bool or Maybe String), 
+--  but a type constructor that takes one type parameter.
+
+-- map is just a fmap that works only on lists.
+-- Here's how the list is an instance of the Functor typeclass:
+    -- instance Functor [] where
+    --     fmap = map
+
+-- Notice how we didn't write: instance Functor [a] where, because from fmap :: (a -> b) -> f a -> f b, 
+--  we see that the f has to be a type constructor that takes one type.
+
+-- Types that can act like a box can be functors. 
+-- You can think of a list as a box that has an infinite amount of little compartments and:
+    -- They can all be empty, 
+    -- One can be full and the others empty or 
+    -- A number of them can be full.
+
+fmapMapExample = fmap (*2) [1..3]
+-- result: [2,4,6]
+
+
+-- Here's how Maybe is a functor:
+    -- instance Functor Maybe where
+    --     fmap f (Just x) = Just (f x)
+    --     fmap f Nothing = Nothing
+
+fmapMaybeExample1 = fmap (++ " HEY GUYS IM INSIDE THE JUST") (Just "Something serious.")
+-- result: Just "Something serious. HEY GUYS IM INSIDE THE JUST"
+fmapMaybeExample2 = fmap (++ " HEY GUYS IM INSIDE THE JUST") Nothing
+-- result: Nothing
+fmapMaybeExample3 = fmap (*2) (Just 200)
+-- result: Just 400
+fmapMaybeExample4 = fmap (*2) Nothing
+-- result: Nothing
+
+
+-- Here's how Tree is a functor:
+    -- instance Functor Tree where
+    --     fmap f EmptyTree = EmptyTree
+    --     fmap f (Node x leftsub rightsub) = Node (f x) (fmap f leftsub) (fmap f rightsub)
+
+fmapTreeExample1 = fmap (*2) EmptyTree
+-- result: EmptyTree
+fmapTreeExample2 = fmap (*4) (foldr treeInsert EmptyTree [5,7,3,2,1,7])
+-- result: Node 28 (Node 4 EmptyTree (Node 8 EmptyTree (Node 12 EmptyTree (Node 20 EmptyTree EmptyTree)))) EmptyTree
+
+
+-- Here's how Either a is a functor in the standard libraries:
+    -- instance Functor (Either a) where
+    --     fmap f (Right x) = Right (f x)
+    --     fmap f (Left x) = Left x
+
+-- The Functor typeclass wants a type constructor that takes only one type parameter 
+--  but Either takes two. So, we'll partially apply Either by feeding it only one parameter 
+--  so that it has one free parameter. 
+
+-- We made Either a, an instance instead of just Either.
+-- That's because Either a is a type constructor that takes one parameter, whereas Either takes two.
