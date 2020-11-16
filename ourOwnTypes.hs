@@ -1,3 +1,5 @@
+import qualified Data.Map as Map
+
 -- Algebraic data types
 
 -- We make our own data type to represent a Shape (Circle or Rectangle)
@@ -332,3 +334,231 @@ makeListRangeDayBounds = [minBound .. maxBound] :: [Day]
 
 
 -- Type synonyms
+
+-- Type synonyms don't really do anything per se, they're just about giving some types 
+--  different names so that they make more sense to someone reading our code and documentation.
+    -- type String = [Char]
+-- We've introduced the type keyword. 
+-- The keyword might be misleading to some, because we're not actually making anything new 
+--  (we did that with the data keyword), but we're just making a synonym for an already existing type.
+
+phoneBook :: [(String,String)]
+phoneBook =
+    [("betty","555-2938")
+    ,("bonnie","452-2928")
+    ,("patsy","493-2928")
+    ,("lucille","205-2928")
+    ,("wendy","939-8282")
+    ,("penny","853-2492")
+    ]
+
+-- We see that the type of phoneBook is [(String,String)]. 
+-- That tells us that it's an association list that maps from strings to strings, but not much else. 
+-- Let's make a type synonym to convey some more information in the type declaration:
+type PhoneBookType = [(String,String)]
+
+-- We can make it more descriptive, by making a type synonym for String as well:
+type PhoneNumber = String
+type Name = String
+type PhoneBook = [(Name,PhoneNumber)]
+
+-- So now, when we implement a function that takes a name and a number and sees 
+--  if that name and number combination is in our phonebook, 
+--  we can give it a very pretty and descriptive type declaration.
+inPhoneBook :: Name -> PhoneNumber -> PhoneBook -> Bool
+inPhoneBook name pnumber pbook = (name,pnumber) `elem` pbook
+
+
+-- Type synonyms can also be parameterized. 
+-- If we want a type that represents an association list type but still want it to be general 
+--  so it can use any type as the keys and values, we can do this:
+type AssocList k v = [(k,v)]
+-- Now, a function that gets the value by a key in an association list can have a type of:
+    -- (Eq k) => k -> AssocList k v -> Maybe v
+-- AssocList is a type constructor that takes two types and produces a concrete type, like:
+    -- AssocList Int String
+
+
+-- Just like we can partially apply functions to get new functions,
+--   we can partially apply type parameters and get new type constructors from them.
+-- If we wanted a type that represents a map (from Data.Map) from integers to something, 
+--  we could either do this:
+type IntMap1 v = Map.Map Int v
+-- Or we could do it like this:
+type IntMap2 = Map.Map Int
+
+
+-- Another cool data type that takes two types as its parameters is the Either a b type. 
+-- This is roughly how it's defined:
+    -- data Either a b = Left a | Right b deriving (Eq, Ord, Read, Show)
+-- It has two value constructors. 
+    -- If the Left is used, then its contents are of type a and 
+    -- If Right is used, then its contents are of type b.
+rightExample = Right 20
+-- result: Right 20
+leftExample = Left "w00t"
+-- result: Left "w00t"
+
+
+-- When we're interested in how some function failed or why, we usually use the result type of 
+--  Either a b, instead of Maybe a, because Nothing doesn't really convey much information other than that something has failed.
+    --  a is some sort of type that can tell us something about the possible failure and 
+    -- b is the type of a successful computation. 
+-- Hence, errors use the Left value constructor while results use Right.
+
+-- Problem as an Example:
+-- A high-school has lockers so that students have some place to put their Guns'n'Roses posters.
+-- Each locker has a code combination. When a student wants a new locker, they tell the locker 
+-- supervisor which locker number they want and he gives them the code. 
+-- However, if someone is already using that locker, he can't tell them the code for the locker 
+-- and they have to pick a different one.
+data LockerState = Taken | Free deriving (Show, Eq)
+type Code = String
+type LockerMap = Map.Map Int (LockerState, Code)
+-- And now, we're going to make a function that searches for the code in a locker map.
+-- We're going to use an Either String Code type to represent our result, 
+-- because our lookup can fail in two ways 
+    -- The locker can be taken, in which case we can't tell the code or 
+    -- The locker number might not exist at all. 
+    -- If the lookup fails, we're just going to use a String to tell what's happened.
+
+lockerLookup :: Int -> LockerMap -> Either String Code  
+lockerLookup lockerNumber map =
+    case Map.lookup lockerNumber map of
+        Nothing -> Left $ "Locker number " ++ show lockerNumber ++ " doesn't exist!"
+        Just (state, code) -> if state /= Taken
+                                then Right code
+                                else Left $ "Locker " ++ show lockerNumber ++ " is already taken!"
+
+lockers :: LockerMap
+lockers = Map.fromList
+    [(100,(Taken,"ZD39I"))
+    ,(101,(Free,"JAH3I"))
+    ,(103,(Free,"IQSA9"))
+    ,(105,(Free,"QOTSA"))
+    ,(109,(Taken,"893JJ"))
+    ,(110,(Taken,"99292"))
+    ]
+
+-- Now let's try looking up some locker codes:
+lockerLookupExample1 = lockerLookup 101 lockers
+-- result: Right "JAH3I"
+lockerLookupExample2 = lockerLookup 100 lockers
+-- result: Left "Locker 100 is already taken!"
+lockerLookupExample3 = lockerLookup 102 lockers
+-- result: Left "Locker number 102 doesn't exist!"
+lockerLookupExample4 = lockerLookup 110 lockers
+-- result: Left "Locker 110 is already taken!"
+lockerLookupExample5 = lockerLookup 105 lockers
+-- result: Right "QOTSA"
+
+
+
+
+-- Recursive data structures
+
+-- As we've seen, a constructor in an algebraic data type can have several 
+--  (or none at all) fields and each field must be of some concrete type.
+-- We can make types whose constructors have fields that are of the same type.
+
+-- Using that, we can create recursive data types, where one value of some type
+--  contains values of that type, which in turn contain more values of the same type and so on.
+
+-- Let's use algebraic data types to implement our own list then:
+data List a = Empty | Cons a (List a) deriving (Show, Read, Eq, Ord)
+-- It's either an empty list or a combination of a head with some value and a list.
+listEmptyExample = Empty
+-- result: Empty
+list1Example = 5 `Cons` Empty
+-- result: Cons 5 Empty
+list2Example = 4 `Cons` (5 `Cons` Empty)
+-- result: Cons 4 (Cons 5 Empty)
+list3Example = 3 `Cons` (4 `Cons` (5 `Cons` Empty))
+-- result: Cons 3 (Cons 4 (Cons 5 Empty))
+
+-- We can define functions to be automatically infix by making them comprised of only special characters. 
+-- We can also do the same with constructors, since they're just functions that return a data type. 
+-- So check this out:
+infixr 5 :-:
+data ListInfix a = EmptyInfix | a :-: (ListInfix a) deriving (Show, Read, Eq, Ord)
+-- When we define functions as operators, we can use fixity declarations to give them a fixity (but we don't have to).
+-- A fixity states how tightly the operator binds and whether it's left-associative or right-associative.
+-- For instance:
+    -- *'s fixity is infixl 7 * and 
+    -- +'s fixity is infixl 6
+-- That means that they're both left-associative, but * binds tighter than +, because it has a greater fixity.
+
+-- Now, we can write out lists in our list type like so:
+listInfixExample = 3 :-: 4 :-: 5 :-: EmptyInfix
+-- result: 3 :-: (4 :-: (5 :-: EmptyInfix))
+aList = 3 :-: 4 :-: 5 :-: EmptyInfix
+bList = 100 :-: aList
+-- result: 100 :-: (3 :-: (4 :-: (5 :-: EmptyInfix)))
+
+-- When deriving Show for our type, Haskell will still display it as if the constructor was 
+-- a prefix function, hence the parentheses around the operator (remember, 4 + 3 is (+) 4 3).
+
+-- Let's make a function that adds two of our lists together. 
+-- This is how ++ will be defined for our lists:
+infixr 5 .++
+(.++) :: ListInfix a -> ListInfix a -> ListInfix a
+EmptyInfix .++ ys = ys
+(x :-: xs) .++ ys = x :-: (xs .++ ys)
+
+aListAdd = 3 :-: 4 :-: 5 :-: EmptyInfix
+-- result: 3 :-: (4 :-: (5 :-: EmptyInfix))
+bListAdd = 6 :-: 7 :-: EmptyInfix
+-- result: 6 :-: (7 :-: EmptyInfix)
+abListAdd = aListAdd .++ bListAdd
+-- result: 3 :-: (4 :-: (5 :-: (6 :-: (7 :-: EmptyInfix))))
+
+
+-- Binary Search Trees
+-- We'll be implementing normal binary search trees.
+-- A tree is either an empty tree or it's an element that contains some value and two trees. 
+data Tree a = EmptyTree | Node a (Tree a) (Tree a) deriving (Show, Read, Eq)
+
+-- We will make a utility function for making a singleton tree (a tree with just one node) 
+singleton :: a -> Tree a
+singleton x = Node x EmptyTree EmptyTree
+
+-- We will make a function to insert an element into a tree.
+-- We do this by comparing the value we want to insert to the root node and then:
+    -- if it's smaller, we go left, 
+    -- if it's larger, we go right. 
+-- We do the same for every subsequent node until we reach an empty tree. 
+-- Once we've reached an empty tree, we just insert a node with that value instead of the empty tree.
+treeInsert :: (Ord a) => a -> Tree a -> Tree a
+treeInsert x EmptyTree = singleton x
+treeInsert x (Node a left right)
+    | x == a = Node x left right
+    | x < a  = Node a (treeInsert x left) right
+    | x > a  = Node a left (treeInsert x right)
+
+-- We will make a function that checks if some element is in the tree.
+treeElem :: (Ord a) => a -> Tree a -> Bool
+treeElem x EmptyTree = False
+treeElem x (Node a left right)
+    | x == a = True
+    | x < a  = treeElem x left
+    | x > a  = treeElem x right
+
+-- We will use a fold to build up a tree from a list (Instead of manually building one).
+nums = [8,6,4,1,7,3,5]
+numsTree = foldr treeInsert EmptyTree nums
+-- result: Node 5 (Node 3 (Node 1 EmptyTree EmptyTree) (Node 4 EmptyTree EmptyTree)) (Node 7 (Node 6 EmptyTree EmptyTree) (Node 8 EmptyTree EmptyTree))
+
+-- We will check if some elements are in our tree:
+checkIfInTree1 = 8 `treeElem` numsTree
+-- result: True
+checkIfInTree2 = 100 `treeElem` numsTree
+-- result: False
+checkIfInTree3 = 1 `treeElem` numsTree
+-- result: True
+checkIfInTree4 = 10 `treeElem` numsTree
+-- result: False
+
+
+
+
+-- Typeclasses 102
